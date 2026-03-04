@@ -1,0 +1,1491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>RankIt — Live Ranking</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<!-- ============================================================
+  STEP 1: Paste your Firebase config below.
+  Go to: console.firebase.google.com
+  → Your project → Project Settings → "Your apps" → </> (Web)
+  → Register app → copy the firebaseConfig object values below
+============================================================ -->
+<script>
+  const FIREBASE_CONFIG = {
+    apiKey:            "AIzaSyAYPwoZhwU3eNkLFYs1qXT0Nc-C4-XPK3Q",
+    authDomain:        "rankit-96da8.firebaseapp.com",
+    databaseURL:       "https://rankit-96da8-default-rtdb.firebaseio.com/",
+    projectId:         "rankit-96da8",
+    storageBucket:     "rankit-96da8.firebasestorage.app",
+    messagingSenderId: "1013155521860",
+    appId:             "1:1013155521860:web:976ecd17d34493788f6311",
+    measurementId:     "G-85C07ME7Q3"
+
+  };
+  // Set to true once you've filled in the config above
+  const FIREBASE_READY = true;
+</script>
+
+<style>
+  :root{--bg:#0d0d0d;--surface:#161616;--surface2:#1f1f1f;--border:#2a2a2a;--accent:#f0e040;--accent2:#ff5533;--text:#f0ede6;--muted:#666;--success:#4ade80;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;overflow-x:hidden;}
+  body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");pointer-events:none;z-index:9999;}
+  .screen{display:none;flex-direction:column;min-height:100vh;}.screen.active{display:flex;}
+
+  .header{padding:20px 20px 0;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+  .logo{font-family:'Bebas Neue',sans-serif;font-size:2.2rem;letter-spacing:3px;color:var(--accent);line-height:1;}
+  .logo span{color:var(--accent2);}
+  .live-dot{display:inline-flex;align-items:center;gap:5px;background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.3);border-radius:100px;padding:4px 10px;font-size:.65rem;font-weight:700;letter-spacing:1px;color:var(--success);}
+  .live-dot::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--success);animation:blink 1.4s infinite;}
+  @keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+  .hero{padding:36px 20px 24px;flex:1;display:flex;flex-direction:column;}
+  .hero-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(3rem,14vw,5rem);line-height:.9;letter-spacing:2px;margin-bottom:14px;}
+  .hero-title .hl{color:var(--accent);}.hero-title .hl2{color:var(--accent2);}
+  .hero-sub{font-size:.9rem;color:var(--muted);line-height:1.6;max-width:340px;margin-bottom:34px;}
+
+  .input-label{font-size:.68rem;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;display:block;}
+  input[type=text],input[type=number]{background:var(--surface);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:1rem;padding:13px 16px;width:100%;transition:border-color .2s;-webkit-appearance:none;}
+  input:focus{outline:none;border-color:var(--accent);}
+  input::placeholder{color:var(--muted);}
+  .input-group{display:flex;flex-direction:column;gap:14px;margin-bottom:22px;}
+
+  .btn{background:var(--accent);border:none;border-radius:10px;color:#000;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.92rem;font-weight:700;letter-spacing:.5px;padding:14px 24px;width:100%;transition:transform .1s,opacity .2s;-webkit-appearance:none;}
+  .btn:active{transform:scale(.97);}
+  .btn-secondary{background:var(--surface2);color:var(--text);border:1.5px solid var(--border);}
+  .btn-danger{background:var(--accent2);color:#fff;}
+  .btn-ghost{background:transparent;color:var(--muted);border:1.5px solid var(--border);}
+  .btn:disabled{opacity:.35;pointer-events:none;}
+
+  .player-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;}
+  .player-chip{background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;animation:slideIn .2s ease;}
+  @keyframes slideIn{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
+  .chip-num{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--muted);letter-spacing:1px;min-width:22px;}
+  .chip-name{font-weight:500;font-size:.95rem;}
+  .remove-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.3rem;padding:0 0 0 10px;line-height:1;}
+
+  .add-section{background:var(--surface);border:1.5px dashed var(--border);border-radius:10px;padding:14px;margin-bottom:16px;}
+  .add-row{display:flex;gap:8px;}.add-row input{flex:1;}.add-row .btn{width:auto;padding:13px 18px;background:var(--accent2);color:#fff;}
+
+  .content{padding:20px 20px 28px;flex:1;display:flex;flex-direction:column;}
+  .section-title{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;letter-spacing:2px;color:var(--accent);margin-bottom:4px;}
+  .section-sub{font-size:.82rem;color:var(--muted);margin-bottom:16px;line-height:1.5;}
+
+  /* SESSION CARDS */
+  .session-cards{display:flex;flex-direction:column;gap:10px;margin-bottom:20px;}
+  .session-card{background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:border-color .15s;}
+  .session-card:active{border-color:var(--accent);}
+  .session-card-name{font-weight:600;font-size:.95rem;}
+  .session-card-meta{font-size:.72rem;color:var(--muted);margin-top:2px;}
+  .session-card-arrow{color:var(--muted);font-size:1.1rem;}
+
+  /* SHARE BOX */
+  .share-box{background:var(--surface);border:1.5px solid var(--accent);border-radius:12px;padding:14px 16px;margin-bottom:16px;}
+  .share-label{font-size:.65rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .share-url{font-size:.8rem;color:var(--text);word-break:break-all;margin-bottom:10px;line-height:1.4;}
+  .share-row{display:flex;gap:8px;}
+  .share-row .btn{flex:1;padding:10px 12px;font-size:.8rem;}
+
+  /* VOTER GRID */
+  .voter-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;}
+  .voter-card{background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:14px 10px;text-align:center;cursor:pointer;transition:all .15s;position:relative;}
+  .voter-card.voted{border-color:var(--success);opacity:.55;pointer-events:none;}
+  .voter-card.voted::after{content:'✓';position:absolute;top:6px;right:10px;color:var(--success);font-size:.8rem;font-weight:700;}
+  .voter-card:not(.voted):active{border-color:var(--accent);transform:scale(.97);}
+  .voter-card-name{font-weight:600;font-size:.9rem;margin-bottom:3px;}
+  .voter-card-status{font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+
+  .cmp-header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0;}
+  .voter-tag{font-family:'Bebas Neue',sans-serif;font-size:1.3rem;letter-spacing:2px;color:var(--accent);white-space:nowrap;}
+  .prog-wrap{flex:1;background:var(--border);border-radius:100px;height:4px;overflow:hidden;}
+  .prog-fill{background:var(--accent);height:100%;border-radius:100px;transition:width .3s;}
+  .prog-txt{font-size:.72rem;color:var(--muted);white-space:nowrap;}
+
+  .battle-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 20px;gap:16px;}
+  .q-text{font-family:'Bebas Neue',sans-serif;font-size:clamp(1.3rem,5.5vw,1.8rem);letter-spacing:2px;text-align:center;color:var(--muted);}
+  .vs{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:var(--border);letter-spacing:4px;}
+  .battle-card{background:var(--surface);border:2px solid var(--border);border-radius:16px;width:100%;max-width:360px;padding:24px 20px;text-align:center;cursor:pointer;transition:all .12s;}
+  .battle-card.self{border-color:var(--accent);}.battle-card.other{border-color:var(--accent2);}
+  .battle-card:active{transform:scale(.96);}
+  .bc-label{font-size:.6rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;}
+  .battle-card.self .bc-label{color:var(--accent);}.battle-card.other .bc-label{color:var(--accent2);}
+  .bc-name{font-family:'Bebas Neue',sans-serif;font-size:clamp(2rem,9vw,3rem);letter-spacing:2px;line-height:1;margin-bottom:6px;}
+  .bc-desc{font-size:.75rem;color:var(--muted);}
+
+  .results-list{display:flex;flex-direction:column;gap:9px;margin-bottom:18px;}
+  .result-item{background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:12px;animation:slideIn .3s ease both;}
+  .result-item:nth-child(1){border-color:#f0e040;animation-delay:.04s;}
+  .result-item:nth-child(2){border-color:#c0c0c0;animation-delay:.08s;}
+  .result-item:nth-child(3){border-color:#cd7f32;animation-delay:.12s;}
+  .seed-num{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:1px;min-width:32px;text-align:center;line-height:1;}
+  .s1{color:#f0e040;}.s2{color:#c0c0c0;}.s3{color:#cd7f32;}.sx{color:var(--muted);font-size:1.1rem;}
+  .result-info{flex:1;min-width:0;}
+  .result-name{font-weight:600;font-size:.95rem;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .result-meta{font-size:.7rem;color:var(--muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .score-val{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:1px;}
+  .pos{color:var(--success);}.neg{color:var(--accent2);}.neu{color:var(--muted);}
+  .conf{display:inline-block;padding:1px 7px;border-radius:100px;font-size:.6rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+  .conf.high{background:rgba(74,222,128,.15);color:var(--success);}
+  .conf.medium{background:rgba(240,224,64,.15);color:var(--accent);}
+  .conf.low{background:rgba(255,85,51,.15);color:var(--accent2);}
+  .tied-badge{display:inline-block;padding:1px 7px;border-radius:100px;font-size:.6rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;background:rgba(255,85,51,.15);color:var(--accent2);}
+
+  .teams-config{background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px;}
+  .teams-row{display:flex;align-items:center;gap:10px;}
+  .teams-row label{font-size:.8rem;color:var(--muted);white-space:nowrap;}
+  .teams-row input[type=number]{width:68px;text-align:center;padding:10px 8px;}
+  .teams-grid{display:grid;gap:12px;margin-bottom:16px;}
+  .team-col{background:var(--surface);border:1.5px solid var(--border);border-radius:12px;overflow:hidden;}
+  .team-header{padding:10px 14px;display:flex;align-items:center;justify-content:space-between;}
+  .team-label-row{display:flex;align-items:center;gap:8px;}
+  .team-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+  .team-title{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:2px;}
+  .team-avg{font-size:.65rem;color:var(--muted);}
+  .team-player{padding:10px 14px;display:flex;align-items:center;gap:10px;border-top:1px solid var(--border);cursor:grab;user-select:none;}
+  .team-player:active{cursor:grabbing;}
+  .team-player.dragging{opacity:.35;}
+  .team-player.drag-over{background:var(--surface2);border-top:2px solid var(--accent);}
+  .tp-seed{font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--muted);min-width:22px;}
+  .tp-name{flex:1;font-size:.9rem;font-weight:500;}
+  .drag-hint{font-size:.65rem;color:var(--border);}
+
+  .notice{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:.82rem;color:var(--muted);line-height:1.5;margin-bottom:14px;}
+  .notice strong{color:var(--text);}
+  .notice.warn{border-color:rgba(240,224,64,.4);background:rgba(240,224,64,.05);}
+  .notice.error{border-color:rgba(255,85,51,.4);background:rgba(255,85,51,.05);}
+  .divider{height:1px;background:var(--border);margin:16px 0;}
+  .stat-row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);font-size:.82rem;}
+  .stat-row:last-child{border-bottom:none;}
+  .stat-key{color:var(--muted);}.stat-val{font-weight:600;}
+  .empty-state{text-align:center;color:var(--muted);font-size:.88rem;padding:28px 0;}
+  .gap-10{display:flex;flex-direction:column;gap:10px;}.mt-auto{margin-top:auto;}
+  .sess-label{font-size:.7rem;color:var(--muted);margin-bottom:2px;}
+  .sess-name{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:3px;color:var(--accent);word-break:break-word;}
+
+  .tab-bar{display:flex;border-bottom:1px solid var(--border);margin-bottom:16px;}
+  .tab{flex:1;padding:12px 8px;text-align:center;font-size:.72rem;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+  .tab-content{display:none;}.tab-content.active{display:block;}
+
+  /* SESSION LIST */
+  .my-sessions{display:flex;flex-direction:column;gap:8px;margin-bottom:4px;}
+  .sess-card{background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:13px 14px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:border-color .15s;animation:slideIn .2s ease;}
+  .sess-card:active{border-color:var(--accent);}
+  .sess-card-dot{width:8px;height:8px;border-radius:50%;background:var(--success);flex-shrink:0;}
+  .sess-card-dot.old{background:var(--border);}
+  .sess-card-info{flex:1;min-width:0;}
+  .sess-card-name{font-weight:600;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .sess-card-meta{font-size:.68rem;color:var(--muted);margin-top:2px;}
+  .sess-card-code{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:2px;color:var(--accent);}
+  .sess-card-remove{background:none;border:none;color:var(--border);cursor:pointer;font-size:1.1rem;padding:4px;line-height:1;flex-shrink:0;}
+  .sess-card-remove:active{color:var(--accent2);}
+
+  /* MODE TOGGLE */
+  .mode-toggle{display:flex;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:3px;margin-bottom:16px;gap:3px;}
+  .mode-btn{flex:1;padding:9px 8px;text-align:center;font-size:.75rem;font-weight:700;letter-spacing:.5px;border:none;background:none;color:var(--muted);border-radius:8px;cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif;}
+  .mode-btn.active{background:var(--accent);color:#000;}
+
+  /* SOLO MODE */
+  .solo-list-cards{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;}
+  .solo-list-card{background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:13px 14px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:border-color .15s;animation:slideIn .2s ease;}
+  .solo-list-card:active{border-color:var(--accent);}
+  .solo-list-card-icon{font-size:1.4rem;flex-shrink:0;}
+  .solo-list-card-info{flex:1;min-width:0;}
+  .solo-list-card-name{font-weight:600;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .solo-list-card-meta{font-size:.68rem;color:var(--muted);margin-top:2px;}
+  .solo-list-card-remove{background:none;border:none;color:var(--border);cursor:pointer;font-size:1.1rem;padding:4px;line-height:1;flex-shrink:0;}
+  .solo-list-card-remove:active{color:var(--accent2);}
+  .solo-result-item{background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:12px;animation:slideIn .25s ease both;}
+  .solo-result-item:nth-child(1){border-color:#f0e040;}
+  .solo-result-item:nth-child(2){border-color:#c0c0c0;}
+  .solo-result-item:nth-child(3){border-color:#cd7f32;}
+
+  /* SETUP SCREEN */
+  #setup-config-notice{display:none;}
+
+  /* SPINNER */
+  .spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:8px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .loading-overlay{position:fixed;inset:0;background:rgba(13,13,13,.85);display:flex;align-items:center;justify-content:center;z-index:1000;flex-direction:column;gap:12px;}
+  .loading-overlay .spinner{width:32px;height:32px;border-width:3px;}
+  .loading-txt{font-size:.85rem;color:var(--muted);}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading-overlay" class="loading-overlay" style="display:none;">
+  <div class="spinner"></div>
+  <div class="loading-txt">Connecting…</div>
+</div>
+
+<!-- ====== HOME ====== -->
+<div id="s-home" class="screen active">
+  <div class="header"><div class="logo">Rank<span>It</span></div><div class="live-dot">LIVE</div></div>
+  <div class="hero">
+    <h1 class="hero-title">WHO'S<br><span class="hl">THE</span><br><span class="hl2">BEST?</span></h1>
+    <p class="hero-sub">Create a session, share the link, everyone votes simultaneously from their own phone.</p>
+
+    <!-- Config warning shown if Firebase not set up -->
+    <div id="config-warning" class="notice warn" style="display:none;">
+      ⚠️ <strong>Firebase not configured yet.</strong> See the setup guide at the bottom of this page, then paste your config into the HTML file.
+    </div>
+
+    <div class="input-group">
+      <div>
+        <label class="input-label">Your Name</label>
+        <input type="text" id="inp-host-name" placeholder="Your name (you'll be the host)" maxlength="30">
+      </div>
+      <div>
+        <label class="input-label">Session Name</label>
+        <input type="text" id="inp-session" placeholder="e.g. Ping Pong Night, Best Restaurants…" maxlength="40">
+      </div>
+      <div>
+        <label class="input-label">Mode</label>
+        <div class="mode-toggle">
+          <button class="mode-btn active" id="mode-btn-people" onclick="setMode('people',this)">👥 Rank People</button>
+          <button class="mode-btn" id="mode-btn-things" onclick="setMode('things',this)">🎯 Rank Anything</button>
+        </div>
+      </div>
+    </div>
+    <button class="btn" id="btn-create" onclick="createSession()">Create Session →</button>
+    <button class="btn btn-secondary" style="margin-top:10px;" onclick="show('s-solo-home')">🎯 Solo Ranking</button>
+
+    <div style="margin-top:18px;">
+      <div class="input-label" style="margin-bottom:8px;">Already have a session code?</div>
+      <div class="add-row">
+        <input type="text" id="inp-join-code" placeholder="Enter 6-letter code…" maxlength="6" style="text-transform:uppercase;" onkeydown="if(event.key==='Enter')joinSession()">
+        <button class="btn btn-secondary" style="width:auto;padding:13px 18px;" onclick="joinSession()">Join</button>
+      </div>
+    </div>
+
+    <div id="my-sessions-section" style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border);display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div class="input-label" style="margin-bottom:0;">My Sessions</div>
+        <button onclick="clearAllSessions()" style="background:none;border:none;color:var(--muted);font-size:.7rem;cursor:pointer;font-family:'DM Sans',sans-serif;">Clear all</button>
+      </div>
+      <div id="my-sessions-list" class="my-sessions"></div>
+    </div>
+
+    <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border);">
+      <div class="input-label" style="margin-bottom:10px;">How it works</div>
+      <div class="stat-row"><span class="stat-key">① Host creates session</span><span class="stat-val">Gets a shareable code</span></div>
+      <div class="stat-row"><span class="stat-key">② Everyone joins</span><span class="stat-val">On their own phone</span></div>
+      <div class="stat-row"><span class="stat-key">③ Vote simultaneously</span><span class="stat-val">Results update live</span></div>
+      <div class="stat-row"><span class="stat-key">④ Make teams</span><span class="stat-val">Auto-balanced by seed</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== LOBBY (Host adds players, shares code) ====== -->
+<div id="s-lobby" class="screen">
+  <div class="header">
+    <button class="btn-ghost btn" style="width:auto;padding:8px 14px;font-size:.78rem;" onclick="leaveSession()">← Leave</button>
+    <div class="live-dot">LIVE</div>
+  </div>
+  <div class="content">
+    <div class="sess-label">Session</div>
+    <div class="sess-name" id="lobby-session-name"></div>
+    <div style="margin-bottom:16px;font-size:.8rem;color:var(--muted);" id="lobby-host-label"></div>
+
+    <div class="share-box">
+      <div class="share-label">Share this code</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:2.8rem;letter-spacing:8px;color:var(--accent);margin-bottom:4px;" id="lobby-code"></div>
+      <div class="share-url" id="lobby-url"></div>
+      <div class="share-row">
+        <button class="btn btn-secondary" onclick="copyCode()">Copy Code</button>
+        <button class="btn btn-secondary" onclick="copyUrl()">Copy Link</button>
+      </div>
+    </div>
+
+    <div class="section-title" id="lobby-list-title">Players</div>
+    <p class="section-sub" id="lobby-sub">Waiting for people to join… share the code above.</p>
+
+    <div class="add-section" id="lobby-add-section">
+      <label class="input-label" id="lobby-add-label">Add player manually</label>
+      <div class="add-row">
+        <input type="text" id="inp-player" placeholder="Name…" maxlength="40" onkeydown="if(event.key==='Enter')addPlayer()">
+        <button class="btn" onclick="addPlayer()">Add</button>
+      </div>
+    </div>
+
+    <!-- Suggest item (non-host in things mode) -->
+    <div class="add-section" id="lobby-suggest-section" style="display:none;">
+      <label class="input-label">Suggest an item</label>
+      <div class="add-row">
+        <input type="text" id="inp-suggest" placeholder="Suggest something to rank…" maxlength="40" onkeydown="if(event.key==='Enter')suggestItem()">
+        <button class="btn" onclick="suggestItem()">Suggest</button>
+      </div>
+    </div>
+
+    <div id="player-list" class="player-list"></div>
+
+    <div class="mt-auto gap-10">
+      <div id="lobby-notice" class="notice" style="display:none;"></div>
+      <button class="btn" id="btn-start-voting" onclick="startVoting()" disabled>Start Voting →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== VOTER SELECT ====== -->
+<div id="s-voter" class="screen">
+  <div class="header">
+    <button class="btn-ghost btn" style="width:auto;padding:8px 14px;font-size:.78rem;" onclick="goToHome()">← Home</button>
+    <div style="text-align:center;"><div class="sess-label">Session</div><div class="sess-name" id="voter-title" style="font-size:1.2rem;"></div></div>
+    <button class="btn btn-secondary" style="width:auto;padding:8px 14px;font-size:.78rem;" onclick="showResultsScreen()">Results</button>
+  </div>
+  <div class="content">
+    <div class="section-title">Who's voting?</div>
+    <p class="section-sub" id="voter-sub">Everyone taps their own name simultaneously on their own phone.</p>
+    <div id="voter-grid" class="voter-grid"></div>
+    <div class="notice"><strong>Adaptive mode ⚡</strong> First voter answers all questions. Later voters only get asked uncertain pairs — gets faster as more people vote.</div>
+  </div>
+</div>
+
+<!-- ====== COMPARISON ====== -->
+<div id="s-compare" class="screen">
+  <div class="cmp-header">
+    <div class="voter-tag" id="cmp-voter"></div>
+    <div class="prog-wrap"><div class="prog-fill" id="cmp-prog" style="width:0%"></div></div>
+    <div class="prog-txt" id="cmp-txt">0/0</div>
+  </div>
+  <div class="battle-area">
+    <div class="q-text" id="cmp-question">WHO IS BETTER?</div>
+    <div class="battle-card self" id="cmp-card-a" onclick="recordComparison('self')">
+      <div class="bc-label" id="cmp-label-a">🟡 Option A</div>
+      <div class="bc-name" id="cmp-a"></div>
+      <div class="bc-desc">Tap if better</div>
+    </div>
+    <div class="vs">VS</div>
+    <div class="battle-card other" id="cmp-card-b" onclick="recordComparison('other')">
+      <div class="bc-label" id="cmp-label-b">🔴 Option B</div>
+      <div class="bc-name" id="cmp-b"></div>
+      <div class="bc-desc">Tap if better</div>
+    </div>
+    <button class="btn btn-ghost" style="margin-top:6px;width:auto;padding:10px 20px;font-size:.78rem;" onclick="skipComparison()">Skip →</button>
+  </div>
+</div>
+
+<!-- ====== VOTER DONE ====== -->
+<div id="s-done" class="screen">
+  <div class="content" style="justify-content:center;align-items:center;text-align:center;">
+    <div style="font-size:3.5rem;margin-bottom:18px;">✅</div>
+    <div class="section-title" style="text-align:center;">Done!</div>
+    <p class="section-sub" style="text-align:center;max-width:260px;margin:0 auto 26px;">Your votes are saved. Check the live results or wait for others to finish.</p>
+    <div class="gap-10" style="width:100%">
+      <button class="btn" id="btn-back-to-voter" onclick="show('s-voter')">Back to Voters</button>
+      <button class="btn btn-secondary" onclick="showResultsScreen()">See Live Results</button>
+      <button class="btn btn-ghost" onclick="goToHome()">← Home</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== RESULTS + TEAMS ====== -->
+<div id="s-results" class="screen">
+  <div class="header">
+    <button class="btn-ghost btn" style="width:auto;padding:8px 14px;font-size:.78rem;" onclick="goToHome()">← Home</button>
+    <div style="text-align:center;"><div class="sess-label">Live Rankings</div><div class="sess-name" id="results-title" style="font-size:1.2rem;"></div></div>
+    <button class="btn btn-secondary" style="width:auto;padding:8px 14px;font-size:.78rem;" onclick="show('s-voter')">Vote</button>
+  </div>
+  <div class="content">
+    <div class="tab-bar">
+      <div class="tab active" onclick="switchTab('rankings',this)">🏆 Rankings</div>
+      <div class="tab" onclick="switchTab('teams',this)">⚡ Teams</div>
+    </div>
+
+    <div id="tab-rankings" class="tab-content active">
+      <div id="r-notice" class="notice" style="display:none;"></div>
+      <div id="tie-notice" class="notice" style="display:none;"></div>
+      <div id="results-list" class="results-list"></div>
+      <div class="divider"></div>
+      <div class="section-title" style="font-size:1.1rem;">Stats</div>
+      <div id="stats-block"></div>
+      <div class="gap-10" style="margin-top:18px;">
+        <button class="btn btn-danger" onclick="confirmReset()">🔄 Reset Votes</button>
+      </div>
+    </div>
+
+    <div id="tab-teams" class="tab-content">
+      <div class="teams-config">
+        <div class="teams-row">
+          <label>Teams:</label>
+          <input type="number" id="inp-teams" value="2" min="2" max="8" style="width:68px;">
+          <button class="btn" style="flex:1;padding:12px 14px;font-size:.85rem;" onclick="generateTeams()">Generate ⚡</button>
+        </div>
+      </div>
+      <div class="notice"><strong>Snake draft:</strong> Seed 1→Team A, 2→Team B, reverses for balance. Drag to adjust.</div>
+      <div id="teams-grid" class="teams-grid"></div>
+      <div id="teams-empty" class="empty-state">Hit Generate after voting to build balanced teams.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== SETUP GUIDE (shown when Firebase not configured) ====== -->
+<div id="s-guide" class="screen">
+  <div class="header"><div class="logo">Rank<span>It</span></div></div>
+  <div class="content">
+    <div class="section-title">Setup Guide</div>
+    <p class="section-sub">One-time 5-minute setup to enable live multiplayer.</p>
+
+    <div class="notice warn">You're seeing this because <strong>FIREBASE_READY</strong> is still set to <strong>false</strong> in the HTML file.</div>
+
+    <div class="stat-row" style="padding:12px 0;"><span class="stat-key" style="font-weight:600;color:var(--text);">Step 1</span><span class="stat-val" style="color:var(--muted);text-align:right;font-weight:400;">Go to console.firebase.google.com and sign in with Google</span></div>
+    <div class="stat-row" style="padding:12px 0;"><span class="stat-key" style="font-weight:600;color:var(--text);">Step 2</span><span class="stat-val" style="color:var(--muted);text-align:right;font-weight:400;">Click "Add project" → name it anything → create</span></div>
+    <div class="stat-row" style="padding:12px 0;"><span class="stat-key" style="font-weight:600;color:var(--text);">Step 3</span><span class="stat-val" style="color:var(--muted);text-align:right;font-weight:400;">Click the &lt;/&gt; Web icon → register app → copy the firebaseConfig</span></div>
+    <div class="stat-row" style="padding:12px 0;"><span class="stat-key" style="font-weight:600;color:var(--text);">Step 4</span><span class="stat-val" style="color:var(--muted);text-align:right;font-weight:400;">In the left menu: Build → Realtime Database → Create database → Start in test mode</span></div>
+    <div class="stat-row" style="padding:12px 0;"><span class="stat-key" style="font-weight:600;color:var(--text);">Step 5</span><span class="stat-val" style="color:var(--muted);text-align:right;font-weight:400;">Open this HTML file in a text editor, paste your config into FIREBASE_CONFIG, set FIREBASE_READY = true</span></div>
+    <div class="stat-row" style="padding:12px 0;"><span class="stat-key" style="font-weight:600;color:var(--text);">Step 6</span><span class="stat-val" style="color:var(--muted);text-align:right;font-weight:400;">Upload the file to any host (Netlify drag-and-drop is easiest — free)</span></div>
+
+    <div class="notice" style="margin-top:16px;">
+      <strong>Netlify hosting (free, 1 min):</strong> Go to app.netlify.com → drag your HTML file onto the page → get a permanent URL to share.
+    </div>
+
+    <div class="gap-10" style="margin-top:8px;">
+      <button class="btn" onclick="window.open('https://console.firebase.google.com','_blank')">Open Firebase Console →</button>
+      <button class="btn btn-secondary" onclick="window.open('https://app.netlify.com','_blank')">Open Netlify →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase SDKs -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getDatabase, ref, set, push, onValue, update, remove, get } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+
+// ============================================================
+// INIT CHECK
+// ============================================================
+if(!FIREBASE_READY){
+  document.getElementById('config-warning').style.display='block';
+  // Show guide screen instead of home if config not done
+  document.getElementById('s-home').classList.remove('active');
+  document.getElementById('s-guide').classList.add('active');
+}
+
+// ============================================================
+// STATE
+// ============================================================
+const COLORS=['#3b82f6','#f97316','#a855f7','#10b981','#ef4444','#ec4899','#14b8a6','#f59e0b'];
+const TNAMES=['Team A','Team B','Team C','Team D','Team E','Team F','Team G','Team H'];
+
+let db, app;
+let S = {
+  sessionId: null, sessionCode: null, sessionName: '',
+  myName: '', isHost: false,
+  mode: 'people',  // 'people' | 'things'
+  players: [], items: [], comparisons: [], votersDone: [],
+  voter: null, queue: [], qIdx: 0,
+  teams: [], drag: null,
+  unsubscribers: []
+};
+
+// setMode moved to plain script block below
+
+// ============================================================
+// FIREBASE INIT
+// ============================================================
+if(FIREBASE_READY){
+  app = initializeApp(FIREBASE_CONFIG);
+  db  = getDatabase(app);
+}
+
+// ============================================================
+// NAV
+// ============================================================
+window.show = function(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+  // Re-render solo list cards when navigating home
+  if(id==='s-solo-home') { try{ renderSoloListCards(); }catch(e){} }
+}
+
+window.switchTab = function(name, el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+  if(name==='teams') renderTeams();
+}
+
+// ============================================================
+// SESSION CREATION
+// ============================================================
+window.createSession = async function(){
+  if(!FIREBASE_READY){ show('s-guide'); return; }
+  const hostName = document.getElementById('inp-host-name').value.trim();
+  const sessName = document.getElementById('inp-session').value.trim();
+  if(!hostName){ alert('Enter your name first!'); return; }
+  if(!sessName){ alert('Enter a session name!'); return; }
+
+  setLoading(true);
+  try {
+    const code = randomCode();
+    const sessRef = ref(db, `sessions/${code}`);
+    const hostId  = 'p_' + Date.now() + Math.random().toString(36).slice(2);
+
+    const mode = window._pendingMode || S.mode || 'people';
+  S.mode = mode;
+    await set(sessRef, {
+      name: sessName, code, hostId,
+      mode,
+      status: 'lobby',
+      createdAt: Date.now(),
+      players: { [hostId]: { id: hostId, name: hostName, joinedAt: Date.now() } },
+      items: {},
+      comparisons: {},
+      votersDone: {}
+    });
+
+    S.sessionId   = code;
+    S.sessionCode = code;
+    S.sessionName = sessName;
+    S.myName      = hostName;
+    S.isHost      = true;
+    S.myId        = hostId;
+    S.mode        = mode;
+    S.items       = [];
+
+    saveIdentity(hostName, hostId, code, sessName);
+    subscribeToSession(code);
+    setLoading(false);
+    show('s-lobby');
+  } catch(e) {
+    setLoading(false);
+    alert('Error creating session: ' + e.message);
+  }
+}
+
+window.joinSession = async function(){
+  if(!FIREBASE_READY){ show('s-guide'); return; }
+  const code = document.getElementById('inp-join-code').value.trim().toUpperCase();
+  if(code.length !== 6){ alert('Enter a 6-letter session code'); return; }
+
+  setLoading(true);
+  try {
+    const sessRef = ref(db, `sessions/${code}`);
+    const snap    = await get(sessRef);
+    if(!snap.exists()){ setLoading(false); alert('Session not found. Check the code and try again.'); return; }
+    const data = snap.val();
+
+    // Prompt for name
+    const name = prompt(`Joining "${data.name}". What's your name?`);
+    if(!name){ setLoading(false); return; }
+
+    const myId  = 'p_' + Date.now() + Math.random().toString(36).slice(2);
+    await update(ref(db, `sessions/${code}/players/${myId}`), { id: myId, name: name.trim(), joinedAt: Date.now() });
+
+    S.sessionId   = code;
+    S.sessionCode = code;
+    S.sessionName = data.name;
+    S.myName      = name.trim();
+    S.isHost      = false;
+    S.myId        = myId;
+    S.mode        = data.mode || 'people';
+    S.items       = Object.values(data.items || {}).sort((a,b)=>(a.addedAt||0)-(b.addedAt||0));
+
+    saveIdentity(name.trim(), myId, code, data.name);
+    subscribeToSession(code);
+    setLoading(false);
+
+    // If session already started voting, go to voter screen
+    if(data.status === 'voting') show('s-voter');
+    else show('s-lobby');
+  } catch(e) {
+    setLoading(false);
+    alert('Error joining: ' + e.message);
+  }
+}
+
+window.leaveSession = function(){
+  if(!confirm('Leave this session?')) return;
+  S.unsubscribers.forEach(u => u());
+  S.unsubscribers = [];
+  S.sessionId = null;
+  renderSessionList();
+  show('s-home');
+}
+
+// Go home without leaving — session stays saved, can rejoin from list
+window.goToHome = function(){
+  // Keep listeners alive so session stays in sync if they come back
+  // Just navigate home — session card will let them jump back in
+  renderSessionList();
+  show('s-home');
+}
+
+// ============================================================
+// REAL-TIME SUBSCRIPTION
+// ============================================================
+function subscribeToSession(code){
+  // Unsubscribe any existing listeners
+  S.unsubscribers.forEach(u => u());
+  S.unsubscribers = [];
+
+  const sessRef = ref(db, `sessions/${code}`);
+  const unsub = onValue(sessRef, snap => {
+    if(!snap.exists()) return;
+    const data = snap.val();
+
+    // Sync local state from Firebase
+    S.players     = Object.values(data.players || {}).sort((a,b)=>a.joinedAt-b.joinedAt);
+    S.items       = Object.values(data.items || {}).sort((a,b)=>(a.addedAt||0)-(b.addedAt||0));
+    S.comparisons = Object.values(data.comparisons || {});
+    S.votersDone  = Object.keys(data.votersDone || {});
+    S.sessionName = data.name;
+    S.mode        = data.mode || 'people';
+
+    // Update UI based on current screen
+    const active = document.querySelector('.screen.active')?.id;
+    if(active === 's-lobby'){
+      renderLobby(data);
+    }
+    if(active === 's-voter' || active === 's-lobby'){
+      renderVoterGrid();
+    }
+    if(active === 's-results'){
+      renderResults();
+    }
+
+    // If host started voting and we're in lobby, move to voter screen
+    if(data.status === 'voting' && active === 's-lobby' && !S.isHost){
+      document.getElementById('voter-title').textContent = S.sessionName;
+      document.getElementById('results-title').textContent = S.sessionName;
+      updateVoterScreenForMode();
+      show('s-voter');
+    }
+  });
+
+  S.unsubscribers.push(unsub);
+}
+
+// ============================================================
+// LOBBY
+// ============================================================
+function renderLobby(data){
+  const mode = data.mode || 'people';
+  document.getElementById('lobby-session-name').textContent = data.name;
+  document.getElementById('lobby-code').textContent = data.code;
+  document.getElementById('lobby-host-label').textContent = (S.isHost ? 'You are the host' : 'You joined as ' + S.myName) + (mode==='things' ? ' · 🎯 Rank Anything' : ' · 👥 Rank People');
+
+  const url = window.location.href.split('?')[0] + '?join=' + data.code;
+  document.getElementById('lobby-url').textContent = url;
+
+  if(mode === 'things'){
+    // THINGS MODE: show items list
+    document.getElementById('lobby-list-title').textContent = 'Items to Rank';
+    document.getElementById('lobby-add-label').textContent = S.isHost ? 'Add item' : 'Add item';
+    document.getElementById('inp-player').placeholder = 'Item name…';
+    document.getElementById('lobby-add-section').style.display = S.isHost ? 'block' : 'none';
+    document.getElementById('lobby-suggest-section').style.display = !S.isHost ? 'block' : 'none';
+
+    const n = S.items.length;
+    const sub = document.getElementById('lobby-sub');
+    sub.textContent = n < 2 ? 'Add items to rank, then share the code so everyone can join and vote.' : `${n} item${n!==1?'s':''} ready · waiting for voters to join!`;
+
+    const list = document.getElementById('player-list');
+    list.innerHTML = S.items.map((item,i) => `
+      <div class="player-chip">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="chip-num">${i+1}</span>
+          <span class="chip-name">${esc(item.name)}${item.suggested?' <span style="color:var(--muted);font-size:.7rem;">suggested</span>':''}</span>
+        </div>
+        ${S.isHost ? `<button class="remove-btn" onclick="removeItem('${item.id}')">×</button>` : ''}
+      </div>`).join('') || '<div class="empty-state">No items yet — add some above.</div>';
+
+    // Players joined row
+    const pn = S.players.length;
+    const pEl = document.getElementById('lobby-notice');
+    if(n >= 2){
+      pEl.style.display='block';
+      pEl.innerHTML=`<strong>${n} items</strong> · <strong>${pn} voter${pn!==1?'s':''}</strong> joined · ${n*(n-1)/2} total pairs`;
+    } else { pEl.style.display='none'; }
+
+    const btn = document.getElementById('btn-start-voting');
+    btn.disabled = n < 2 || !S.isHost;
+    btn.textContent = 'Start Voting →';
+
+  } else {
+    // PEOPLE MODE: original behaviour
+    document.getElementById('lobby-list-title').textContent = 'Players';
+    document.getElementById('inp-player').placeholder = 'Name…';
+    document.getElementById('lobby-add-section').style.display = 'block';
+    document.getElementById('lobby-suggest-section').style.display = 'none';
+    document.getElementById('lobby-add-label').textContent = 'Add player manually';
+
+    const n = S.players.length;
+    const sub = document.getElementById('lobby-sub');
+    sub.textContent = n < 2 ? 'Waiting for people to join… share the code above.' : `${n} player${n!==1?'s':''} in lobby — ready to start!`;
+
+    const list = document.getElementById('player-list');
+    list.innerHTML = S.players.map((p,i) => `
+      <div class="player-chip">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="chip-num">${i+1}</span>
+          <span class="chip-name">${esc(p.name)}${p.id===S.myId?' <span style="color:var(--accent);font-size:.7rem;">you</span>':''}</span>
+        </div>
+        ${S.isHost ? `<button class="remove-btn" onclick="removePlayer('${p.id}')">×</button>` : ''}
+      </div>`).join('') || '<div class="empty-state">No players yet.</div>';
+
+    const btn = document.getElementById('btn-start-voting');
+    btn.disabled = n < 2 || !S.isHost;
+    btn.textContent = 'Start Voting →';
+
+    const note = document.getElementById('lobby-notice');
+    if(n >= 2){
+      note.style.display='block';
+      note.innerHTML=`<strong>${n} players</strong> · ${n*(n-1)/2} total pairs · Each person answers up to ${n-1} comparisons`;
+    } else { note.style.display='none'; }
+  }
+}
+
+window.addPlayer = async function(){
+  if(!S.sessionId) return;
+  if(S.mode==='things'){ await addItem(); return; }
+  const inp=document.getElementById('inp-player'), n=inp.value.trim();
+  if(!n) return;
+  if(S.players.find(p=>p.name.toLowerCase()===n.toLowerCase())){ alert('Name already added!'); return; }
+  const id='p_'+Date.now()+Math.random().toString(36).slice(2);
+  await update(ref(db,`sessions/${S.sessionId}/players/${id}`),{id,name:n,joinedAt:Date.now()});
+  inp.value=''; inp.focus();
+}
+
+async function addItem(){
+  const inp=document.getElementById('inp-player'), n=inp.value.trim();
+  if(!n) return;
+  if(S.items.find(i=>i.name.toLowerCase()===n.toLowerCase())){ alert('Already in list!'); return; }
+  const id='i_'+Date.now()+Math.random().toString(36).slice(2);
+  await update(ref(db,`sessions/${S.sessionId}/items/${id}`),{id,name:n,addedAt:Date.now(),suggested:false});
+  inp.value=''; inp.focus();
+}
+
+window.removeItem = async function(id){
+  if(!S.sessionId||!S.isHost) return;
+  await remove(ref(db,`sessions/${S.sessionId}/items/${id}`));
+}
+
+window.suggestItem = async function(){
+  if(!S.sessionId) return;
+  const inp=document.getElementById('inp-suggest'), n=inp.value.trim();
+  if(!n) return;
+  if(S.items.find(i=>i.name.toLowerCase()===n.toLowerCase())){ alert('Already in list!'); return; }
+  const id='i_'+Date.now()+Math.random().toString(36).slice(2);
+  await update(ref(db,`sessions/${S.sessionId}/items/${id}`),{id,name:n,addedAt:Date.now(),suggested:true,suggestedBy:S.myName});
+  inp.value=''; inp.focus();
+}
+
+window.removePlayer = async function(id){
+  if(!S.sessionId||!S.isHost) return;
+  await remove(ref(db,`sessions/${S.sessionId}/players/${id}`));
+}
+
+window.copyCode = function(){
+  navigator.clipboard.writeText(S.sessionCode).then(()=>alert('Code copied! Share it with your group.'));
+}
+window.copyUrl = function(){
+  const url=window.location.href.split('?')[0]+'?join='+S.sessionCode;
+  navigator.clipboard.writeText(url).then(()=>alert('Link copied!'));
+}
+
+// ============================================================
+// VOTING
+// ============================================================
+window.startVoting = async function(){
+  if(!S.isHost||!S.sessionId) return;
+  await update(ref(db,`sessions/${S.sessionId}`),{status:'voting'});
+  document.getElementById('voter-title').textContent=S.sessionName;
+  document.getElementById('results-title').textContent=S.sessionName;
+  updateVoterScreenForMode();
+  show('s-voter');
+}
+
+function updateVoterScreenForMode(){
+  const isThings = S.mode==='things';
+  document.querySelector('#s-voter .section-title').textContent = "Who's voting?";
+  document.getElementById('voter-sub').textContent = isThings
+    ? 'Everyone votes on the items — tap your name to start.'
+    : 'Everyone taps their own name simultaneously on their own phone.';
+  document.getElementById('btn-back-to-voter').textContent = isThings ? 'Back to Voting' : 'Back to Voters';
+}
+
+function pairCertainty(idA, idB){
+  const direct=S.comparisons.filter(c=>(c.winner===idA&&c.loser===idB)||(c.winner===idB&&c.loser===idA));
+  if(!direct.length) return 0;
+  const aW=direct.filter(c=>c.winner===idA).length;
+  const tot=direct.length;
+  return (Math.abs(aW*2-tot)/tot)*Math.min(tot,3);
+}
+
+function estimateQuestions(voterId){
+  if(S.mode==='things'){
+    // Things mode: voter answers pairs of items
+    const items=S.items;
+    const allPairs=[];
+    for(let i=0;i<items.length;i++) for(let j=i+1;j<items.length;j++) allPairs.push([items[i].id,items[j].id]);
+    const votedPairs=new Set(S.comparisons.filter(c=>c.voter===voterId).map(c=>c.winner+'|'+c.loser));
+    const unvoted=allPairs.filter(([a,b])=>!votedPairs.has(a+'|'+b)&&!votedPairs.has(b+'|'+a));
+    if(!unvoted.length) return 0;
+    if(S.votersDone.length===0) return unvoted.length;
+    const needed=unvoted.filter(([a,b])=>pairCertainty(a,b)<2.0).length;
+    return Math.max(Math.min(3,unvoted.length),needed);
+  }
+  const voted=S.comparisons.filter(c=>c.voter===voterId).map(c=>c.winner===voterId?c.loser:c.winner);
+  const unvoted=S.players.filter(p=>p.id!==voterId&&!voted.includes(p.id));
+  if(!unvoted.length) return 0;
+  if(S.votersDone.length===0) return unvoted.length;
+  const needed=unvoted.filter(o=>pairCertainty(voterId,o.id)<2.0).length;
+  return Math.max(Math.min(3,unvoted.length),needed);
+}
+
+function renderVoterGrid(){
+  const isFirst=S.votersDone.length===0;
+  document.getElementById('voter-grid').innerHTML=S.players.map(p=>{
+    const done=S.votersDone.includes(p.id);
+    const qCount=done?0:estimateQuestions(p.id);
+    const qLabel=done?'Voted ✓':isFirst?`${qCount} questions`:`~${qCount} question${qCount!==1?'s':''}`;
+    const adapted=!done&&!isFirst&&qCount<(S.players.length-1);
+    return `<div class="voter-card ${done?'voted':''}" onclick="${done?'':'window.selectVoter(\''+p.id+'\')'}">
+      <div class="voter-card-name">${esc(p.name)}${p.id===S.myId?' 👤':''}</div>
+      <div class="voter-card-status">${qLabel}${adapted?' ⚡':''}</div>
+    </div>`;
+  }).join('');
+}
+
+window.selectVoter = function(id){
+  const voter=S.players.find(p=>p.id===id); S.voter=voter;
+
+  if(S.mode==='things'){
+    // Build queue of item pairs for this voter
+    const items=S.items;
+    if(items.length<2){ alert('Not enough items to compare!'); return; }
+    const allPairs=[];
+    for(let i=0;i<items.length;i++) for(let j=i+1;j<items.length;j++) allPairs.push({a:items[i],b:items[j],cert:pairCertainty(items[i].id,items[j].id)});
+    const votedSet=new Set(S.comparisons.filter(c=>c.voter===id).map(c=>c.winner+'|'+c.loser).concat(S.comparisons.filter(c=>c.voter===id).map(c=>c.loser+'|'+c.winner)));
+    const unvoted=allPairs.filter(p=>!votedSet.has(p.a.id+'|'+p.b.id));
+    if(!unvoted.length){ alert(`${voter.name} has voted on all pairs!`); return; }
+    const CERTAIN=2.0;
+    const needed=unvoted.filter(p=>p.cert<CERTAIN).sort((a,b)=>a.cert-b.cert);
+    const settled=unvoted.filter(p=>p.cert>=CERTAIN).sort((a,b)=>a.cert-b.cert);
+    let q=needed;
+    const min=Math.min(3,unvoted.length);
+    if(q.length<min) q=[...q,...settled.slice(0,min-q.length)];
+    S.queue=q; S.qIdx=0;
+    document.getElementById('cmp-voter').textContent=voter.name;
+    // Style comparison cards for things mode
+    document.getElementById('cmp-question').textContent='WHICH IS BETTER?';
+    document.getElementById('cmp-label-a').textContent='🟡 Option A';
+    document.getElementById('cmp-label-b').textContent='🔴 Option B';
+    document.getElementById('cmp-card-a').onclick=()=>recordComparison('self');
+    document.getElementById('cmp-card-b').onclick=()=>recordComparison('other');
+    renderCmpThings(); show('s-compare'); return;
+  }
+
+  // PEOPLE MODE
+  const voted=S.comparisons.filter(c=>c.voter===id).map(c=>c.winner===id?c.loser:c.winner);
+  const unvoted=S.players.filter(p=>p.id!==id&&!voted.includes(p.id));
+  if(!unvoted.length){ alert(`${voter.name} has voted on everyone!`); return; }
+
+  let queue;
+  if(S.votersDone.length===0){
+    queue=shuffle([...unvoted]);
+  } else {
+    const scored=unvoted.map(o=>({o,cert:pairCertainty(id,o.id)}));
+    const needed=scored.filter(s=>s.cert<2.0).sort((a,b)=>a.cert-b.cert);
+    const settled=scored.filter(s=>s.cert>=2.0).sort((a,b)=>a.cert-b.cert);
+    let q=needed.map(s=>s.o);
+    const min=Math.min(3,unvoted.length);
+    if(q.length<min) q=[...q,...settled.slice(0,min-q.length).map(s=>s.o)];
+    queue=q;
+  }
+  S.queue=queue; S.qIdx=0;
+  document.getElementById('cmp-voter').textContent=voter.name;
+  document.getElementById('cmp-question').textContent='WHO IS BETTER?';
+  document.getElementById('cmp-label-a').textContent='🟡 '+voter.name;
+  document.getElementById('cmp-label-b').textContent='🔴 Option B';
+  renderCmp(); show('s-compare');
+}
+
+function renderCmpThings(){
+  const q=S.queue,idx=S.qIdx;
+  document.getElementById('cmp-prog').style.width=`${q.length?(idx/q.length*100):0}%`;
+  document.getElementById('cmp-txt').textContent=`${idx}/${q.length}`;
+  if(idx>=q.length){ markVoterDone(S.voter.id); show('s-done'); return; }
+  document.getElementById('cmp-a').textContent=q[idx].a.name;
+  document.getElementById('cmp-b').textContent=q[idx].b.name;
+}
+
+function renderCmp(){
+  const q=S.queue,idx=S.qIdx;
+  document.getElementById('cmp-prog').style.width=`${q.length?(idx/q.length*100):0}%`;
+  document.getElementById('cmp-txt').textContent=`${idx}/${q.length}`;
+  if(idx>=q.length){
+    markVoterDone(S.voter.id);
+    show('s-done'); return;
+  }
+  document.getElementById('cmp-a').textContent=S.voter.name;
+  document.getElementById('cmp-b').textContent=q[idx].name;
+  document.getElementById('cmp-label-a').textContent='🟡 '+S.voter.name;
+  document.getElementById('cmp-label-b').textContent='🔴 Option B';
+}
+
+async function markVoterDone(voterId){
+  await update(ref(db,`sessions/${S.sessionId}/votersDone`),{[voterId]:true});
+}
+
+window.recordComparison = async function(choice){
+  const voter=S.voter;
+
+  if(S.mode==='things'){
+    const pair=S.queue[S.qIdx];
+    const winner=choice==='self'?pair.a.id:pair.b.id, loser=choice==='self'?pair.b.id:pair.a.id;
+    const prior=S.comparisons.find(c=>c.voter===voter.id&&((c.winner===pair.a.id&&c.loser===pair.b.id)||(c.winner===pair.b.id&&c.loser===pair.a.id)));
+    if(prior) await remove(ref(db,`sessions/${S.sessionId}/comparisons/${prior.fbKey}`));
+    const newRef=push(ref(db,`sessions/${S.sessionId}/comparisons`));
+    await set(newRef,{voter:voter.id,winner,loser,fbKey:newRef.key});
+    S.qIdx++; renderCmpThings(); return;
+  }
+
+  const opp=S.queue[S.qIdx];
+  const winner=choice==='self'?voter.id:opp.id, loser=choice==='self'?opp.id:voter.id;
+  const prior=S.comparisons.find(c=>c.voter===voter.id&&((c.winner===voter.id&&c.loser===opp.id)||(c.winner===opp.id&&c.loser===voter.id)));
+  if(prior) await remove(ref(db,`sessions/${S.sessionId}/comparisons/${prior.fbKey}`));
+  const newRef=push(ref(db,`sessions/${S.sessionId}/comparisons`));
+  await set(newRef,{voter:voter.id,winner,loser,fbKey:newRef.key});
+  S.qIdx++; renderCmp();
+}
+
+window.skipComparison = function(){ S.qIdx++; S.mode==='things'?renderCmpThings():renderCmp(); }
+
+// ============================================================
+// RANKINGS
+// ============================================================
+function computeRankings(){
+  const subjects = S.mode==='things' ? S.items : S.players;
+  if(!subjects.length) return [];
+  const wins={},losses={},total={};
+  subjects.forEach(p=>{wins[p.id]=0;losses[p.id]=0;total[p.id]=0;});
+  S.comparisons.forEach(c=>{
+    wins[c.winner]=(wins[c.winner]||0)+1;
+    losses[c.loser]=(losses[c.loser]||0)+1;
+    total[c.winner]=(total[c.winner]||0)+1;
+    total[c.loser]=(total[c.loser]||0)+1;
+  });
+  const net=id=>(wins[id]||0)-(losses[id]||0);
+  const crowd=id=>wins[id]||0;
+  const sorted=[...subjects].sort((a,b)=>{const d=net(b.id)-net(a.id);return d!==0?d:crowd(b.id)-crowd(a.id);});
+  const isTied=(a,b)=>net(a.id)===net(b.id)&&crowd(a.id)===crowd(b.id);
+  const maxP=subjects.length-1;
+  return sorted.map((p,i)=>({
+    rank:i+1,name:p.name,id:p.id,
+    net:net(p.id),wins:wins[p.id]||0,losses:losses[p.id]||0,total:total[p.id]||0,
+    tied:(i>0&&isTied(sorted[i-1],p))||(i<sorted.length-1&&isTied(p,sorted[i+1])),
+    conf:total[p.id]>=maxP*.75?'high':total[p.id]>=maxP*.4?'medium':'low'
+  }));
+}
+
+window.showResultsScreen = function(){ renderResults(); document.getElementById('results-title').textContent=S.sessionName; show('s-results'); }
+
+function renderResults(){
+  const rankings=computeRankings(),list=document.getElementById('results-list'),
+        stats=document.getElementById('stats-block'),rn=document.getElementById('r-notice'),tn=document.getElementById('tie-notice');
+  if(!S.comparisons.length){
+    rn.style.display='block';rn.innerHTML='⚠️ <strong>No votes yet.</strong>';
+    tn.style.display='none';list.innerHTML='<div class="empty-state">Results appear after voting.</div>';stats.innerHTML='';return;
+  }
+  rn.style.display='none';
+  const hasTies=rankings.some(r=>r.tied);
+  if(hasTies){tn.style.display='block';tn.innerHTML='⚡ <strong>Ties broken by crowd votes.</strong> More voters = better tiebreaking.';}
+  else tn.style.display='none';
+  const medals=['🥇','🥈','🥉'];
+  list.innerHTML=rankings.map((r,i)=>{
+    const sc=r.net>0?'pos':r.net<0?'neg':'neu',sk=i<3?`s${i+1}`:'sx';
+    return `<div class="result-item">
+      <div class="seed-num ${sk}">${i<3?medals[i]:'#'+r.rank}</div>
+      <div class="result-info">
+        <div class="result-name">${esc(r.name)}</div>
+        <div class="result-meta">${r.wins}W–${r.losses}L&nbsp;<span class="conf ${r.conf}">${r.conf}</span>${r.tied?'&nbsp;<span class="tied-badge">tied</span>':''}</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="score-val ${sc}">${r.net>0?'+':''}${r.net}</div>
+        <div style="font-size:.62rem;color:var(--muted);">seed ${r.rank}</div>
+      </div>
+    </div>`;
+  }).join('');
+  const subjects=S.mode==='things'?S.items:S.players;
+  const pd=S.comparisons.length,mp=subjects.length*(subjects.length-1)/2,cov=mp?Math.round(pd/mp*100):0;
+  stats.innerHTML=`
+    <div class="stat-row"><span class="stat-key">${S.mode==='things'?'Items':'Players'}</span><span class="stat-val">${subjects.length}</span></div>
+    <div class="stat-row"><span class="stat-key">Voters done</span><span class="stat-val">${S.votersDone.length} / ${S.players.length}</span></div>
+    <div class="stat-row"><span class="stat-key">Comparisons</span><span class="stat-val">${pd} / ${mp}</span></div>
+    <div class="stat-row"><span class="stat-key">Coverage</span><span class="stat-val">${cov}%</span></div>`;
+}
+
+window.confirmReset = async function(){
+  if(!S.isHost){ alert('Only the host can reset votes.'); return; }
+  if(confirm('Reset all votes? Players stay, votes clear.')){
+    await remove(ref(db,`sessions/${S.sessionId}/comparisons`));
+    await remove(ref(db,`sessions/${S.sessionId}/votersDone`));
+  }
+}
+
+// ============================================================
+// TEAMS
+// ============================================================
+window.generateTeams = function(){
+  const rankings=computeRankings();
+  if(!rankings.length){alert('No players ranked yet!');return;}
+  const n=Math.max(2,Math.min(8,parseInt(document.getElementById('inp-teams').value)||2));
+  const teams=Array.from({length:n},()=>[]);
+  let dir=1,ti=0;
+  rankings.forEach(p=>{teams[ti].push(p);ti+=dir;if(ti>=n){ti=n-1;dir=-1;}else if(ti<0){ti=0;dir=1;}});
+  S.teams=teams; renderTeams();
+}
+
+function renderTeams(){
+  const grid=document.getElementById('teams-grid'),empty=document.getElementById('teams-empty');
+  if(!S.teams.length){grid.style.display='none';empty.style.display='block';return;}
+  grid.style.display='grid';empty.style.display='none';
+  grid.style.gridTemplateColumns=S.teams.length<=2?'1fr 1fr':'1fr';
+  grid.innerHTML=S.teams.map((team,ti)=>{
+    const col=COLORS[ti%COLORS.length],nm=TNAMES[ti];
+    const avg=team.length?(team.reduce((s,p)=>s+p.rank,0)/team.length).toFixed(1):'—';
+    return `<div class="team-col">
+      <div class="team-header" style="background:${col}18;border-bottom:1px solid ${col}44;">
+        <div class="team-label-row"><div class="team-dot" style="background:${col}"></div><span class="team-title" style="color:${col}">${nm}</span></div>
+        <span class="team-avg">avg seed ${avg}</span>
+      </div>
+      ${team.map(p=>`<div class="team-player" draggable="true" ondragstart="window.dStart(event,'${p.id}',${ti})" ondragover="window.dOver(event)" ondrop="window.dDrop(event,'${p.id}',${ti})" ondragend="window.dEnd()">
+        <div class="tp-seed">#${p.rank}</div><div class="tp-name">${esc(p.name)}</div><div class="drag-hint">⠿</div>
+      </div>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+window.dStart=(e,pid,ti)=>{S.drag={pid,ti};e.target.classList.add('dragging');e.dataTransfer.effectAllowed='move';}
+window.dOver=(e)=>{e.preventDefault();document.querySelectorAll('.team-player').forEach(el=>el.classList.remove('drag-over'));e.currentTarget.classList.add('drag-over');}
+window.dDrop=(e,tPid,toTi)=>{
+  e.preventDefault();document.querySelectorAll('.team-player').forEach(el=>el.classList.remove('drag-over'));
+  if(!S.drag||S.drag.pid===tPid) return;
+  const {pid:fromPid,ti:fromTi}=S.drag;
+  const from=S.teams[fromTi],to=S.teams[toTi];
+  const fi=from.findIndex(p=>p.id===fromPid);if(fi===-1)return;
+  const fp=from.splice(fi,1)[0];
+  if(fromTi===toTi){const ni=to.findIndex(p=>p.id===tPid);to.splice(ni,0,fp);}
+  else{const ti2=to.findIndex(p=>p.id===tPid);if(ti2!==-1){const tp=to.splice(ti2,1)[0];to.splice(ti2,0,fp);from.splice(fi,0,tp);}else to.push(fp);}
+  renderTeams();
+}
+window.dEnd=()=>{document.querySelectorAll('.team-player').forEach(el=>{el.classList.remove('dragging');el.classList.remove('drag-over');});S.drag=null;}
+
+// ============================================================
+// UTILS
+// ============================================================
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function randomCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';return Array.from({length:6},()=>c[Math.floor(Math.random()*c.length)]).join('');}
+function setLoading(on){document.getElementById('loading-overlay').style.display=on?'flex':'none';}
+
+// ============================================================
+// PERSISTENCE — remember name, player ID, and all sessions
+// ============================================================
+function saveIdentity(name, myId, sessionCode, sessionName){
+  try{
+    localStorage.setItem('rankit_name', name);
+    localStorage.setItem('rankit_myId', myId);
+    localStorage.setItem('rankit_lastCode', sessionCode);
+    // Add to session list (device-specific, max 20)
+    let sessions = loadSessionList();
+    // Remove if already exists (will re-add at top)
+    sessions = sessions.filter(s => s.code !== sessionCode);
+    sessions.unshift({ code: sessionCode, name: sessionName || sessionCode, myId, joinedAt: Date.now() });
+    if(sessions.length > 20) sessions = sessions.slice(0, 20);
+    localStorage.setItem('rankit_sessions', JSON.stringify(sessions));
+  }catch(e){}
+}
+function loadIdentity(){
+  try{return{name:localStorage.getItem('rankit_name')||'',myId:localStorage.getItem('rankit_myId')||'',code:localStorage.getItem('rankit_lastCode')||''};}catch(e){return{name:'',myId:'',code:''};}
+}
+function loadSessionList(){
+  try{ return JSON.parse(localStorage.getItem('rankit_sessions')||'[]'); }catch(e){ return []; }
+}
+function removeSessionFromList(code){
+  try{
+    let sessions = loadSessionList().filter(s => s.code !== code);
+    localStorage.setItem('rankit_sessions', JSON.stringify(sessions));
+    renderSessionList();
+  }catch(e){}
+}
+
+window.clearAllSessions = function(){
+  if(!confirm('Remove all sessions from your list?')) return;
+  try{ localStorage.removeItem('rankit_sessions'); }catch(e){}
+  renderSessionList();
+}
+
+window.quickRejoin = async function(code){
+  const sessions = loadSessionList();
+  const sess = sessions.find(s => s.code === code);
+  const myName = loadIdentity().name;
+  if(!sess || !myName) { document.getElementById('inp-join-code').value = code; return; }
+  setLoading(true);
+  const rejoined = await tryAutoRejoin(code, sess.myId, myName);
+  setLoading(false);
+  if(!rejoined){
+    // Session may have expired — offer to join fresh
+    document.getElementById('inp-join-code').value = code;
+    alert('Could not rejoin — session may have ended. Enter the code to join fresh.');
+  }
+}
+
+function renderSessionList(){
+  const sessions = loadSessionList();
+  const section = document.getElementById('my-sessions-section');
+  const list = document.getElementById('my-sessions-list');
+  if(!sessions.length){ section.style.display='none'; return; }
+  section.style.display='block';
+  const now = Date.now();
+  list.innerHTML = sessions.map(s => {
+    const age = now - (s.joinedAt||0);
+    const ageStr = age < 3600000 ? 'Active recently' : age < 86400000 ? Math.floor(age/3600000)+'h ago' : Math.floor(age/86400000)+'d ago';
+    const isRecent = age < 3600000;
+    return `<div class="sess-card" onclick="window.quickRejoin('${s.code}')">
+      <div class="sess-card-dot ${isRecent?'':'old'}"></div>
+      <div class="sess-card-info">
+        <div class="sess-card-name">${esc(s.name)}</div>
+        <div class="sess-card-meta">${ageStr}</div>
+      </div>
+      <div class="sess-card-code">${s.code}</div>
+      <button class="sess-card-remove" onclick="event.stopPropagation();removeSessionFromList('${s.code}')">×</button>
+    </div>`;
+  }).join('');
+}
+
+// Pre-fill saved name and last session code on page load
+const saved=loadIdentity();
+if(saved.name) document.getElementById('inp-host-name').value=saved.name;
+if(saved.code) document.getElementById('inp-join-code').value=saved.code;
+renderSessionList();
+
+// Silently rejoin a session if our player ID still exists in it
+async function tryAutoRejoin(code,myId,myName){
+  if(!code||!myId||!myName||!FIREBASE_READY) return false;
+  try{
+    const snap=await get(ref(db,`sessions/${code}`));
+    if(!snap.exists()) return false;
+    const data=snap.val();
+    if(!data.players||!data.players[myId]) return false;
+    S.sessionId=code;S.sessionCode=code;S.sessionName=data.name;
+    S.myName=myName;S.isHost=data.hostId===myId;S.myId=myId;
+    S.mode=data.mode||'people';
+    S.items=Object.values(data.items||{}).sort((a,b)=>(a.addedAt||0)-(b.addedAt||0));
+    subscribeToSession(code);
+    if(data.status==='voting'){
+      document.getElementById('voter-title').textContent=data.name;
+      document.getElementById('results-title').textContent=data.name;
+      show('s-voter');
+    } else show('s-lobby');
+    return true;
+  }catch(e){return false;}
+}
+
+// Auto-join from URL param (?join=CODE) or silent rejoin on return
+const urlCode=new URLSearchParams(window.location.search).get('join');
+if(FIREBASE_READY){
+  if(urlCode){
+    document.getElementById('inp-join-code').value=urlCode;
+    // Try silent rejoin first (same person returning via link), else prompt for name
+    setTimeout(async()=>{
+      if(saved.myId&&saved.name){
+        const rejoined=await tryAutoRejoin(urlCode,saved.myId,saved.name);
+        if(!rejoined) window.joinSession();
+      } else window.joinSession();
+    },400);
+  } else if(saved.code&&saved.myId&&saved.name){
+    // No URL param — try to silently rejoin last known session
+    setTimeout(()=>tryAutoRejoin(saved.code,saved.myId,saved.name),400);
+  }
+}
+</script>
+
+<!-- ====== SOLO HOME ====== -->
+<div id="s-solo-home" class="screen">
+  <div class="header">
+    <button class="btn-ghost btn" style="width:auto;padding:8px 14px;font-size:.78rem;" onclick="show('s-home')">← Back</button>
+    <div class="logo" style="font-size:1.6rem;">Solo<span>Rank</span></div>
+  </div>
+  <div class="content">
+    <div class="section-title">My Lists</div>
+    <p class="section-sub">Rank anything — people, restaurants, movies, songs. Just you, no internet needed.</p>
+
+    <div class="add-section">
+      <label class="input-label">New List Name</label>
+      <div class="add-row">
+        <input type="text" id="inp-solo-list-name" placeholder="e.g. Best Restaurants, Tennis Players…" maxlength="40" onkeydown="if(event.key==='Enter')soloCreateList()">
+        <button class="btn" onclick="soloCreateList()">Create</button>
+      </div>
+    </div>
+
+    <div id="solo-list-cards" class="solo-list-cards"></div>
+    <div id="solo-lists-empty" class="empty-state" style="display:none;">No lists yet — create one above!</div>
+  </div>
+</div>
+
+<!-- ====== SOLO LIST SETUP (add items) ====== -->
+<div id="s-solo-setup" class="screen">
+  <div class="header">
+    <button class="btn-ghost btn" style="width:auto;padding:8px 14px;font-size:.78rem;" onclick="show('s-solo-home')">← Lists</button>
+    <div class="sess-name" id="solo-setup-title" style="font-size:1.2rem;"></div>
+  </div>
+  <div class="content">
+    <div class="section-title">Items</div>
+    <p class="section-sub">Add everything you want to rank, then hit Start Ranking.</p>
+
+    <div class="add-section">
+      <label class="input-label">Add Item</label>
+      <div class="add-row">
+        <input type="text" id="inp-solo-item" placeholder="Name…" maxlength="40" onkeydown="if(event.key==='Enter')soloAddItem()">
+        <button class="btn" onclick="soloAddItem()">Add</button>
+      </div>
+    </div>
+
+    <div id="solo-item-list" class="player-list"></div>
+
+    <div class="mt-auto gap-10">
+      <div id="solo-setup-notice" class="notice" style="display:none;"></div>
+      <button class="btn" id="btn-solo-start" onclick="soloStartRanking()" disabled>Start Ranking →</button>
+      <button class="btn btn-danger" onclick="soloDeleteList()">🗑 Delete This List</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== SOLO COMPARISON ====== -->
+<div id="s-solo-compare" class="screen">
+  <div class="cmp-header">
+    <button class="btn-ghost btn" style="width:auto;padding:6px 12px;font-size:.75rem;border:none;color:var(--muted);" onclick="soloExitRanking()">← Exit</button>
+    <div class="prog-wrap"><div class="prog-fill" id="solo-prog" style="width:0%"></div></div>
+    <div class="prog-txt" id="solo-prog-txt">0/0</div>
+  </div>
+  <div class="battle-area">
+    <div class="q-text">WHICH IS BETTER?</div>
+    <div class="battle-card self" onclick="soloRecord('a')">
+      <div class="bc-label">🟡 Option A</div>
+      <div class="bc-name" id="solo-cmp-a"></div>
+      <div class="bc-desc">Tap if better</div>
+    </div>
+    <div class="vs">VS</div>
+    <div class="battle-card other" onclick="soloRecord('b')">
+      <div class="bc-label">🔴 Option B</div>
+      <div class="bc-name" id="solo-cmp-b"></div>
+      <div class="bc-desc">Tap if better</div>
+    </div>
+    <button class="btn btn-ghost" style="margin-top:6px;width:auto;padding:10px 20px;font-size:.78rem;" onclick="soloSkip()">Skip →</button>
+  </div>
+</div>
+
+<!-- ====== SOLO RESULTS ====== -->
+<div id="s-solo-results" class="screen">
+  <div class="header">
+    <button class="btn-ghost btn" style="width:auto;padding:8px 14px;font-size:.78rem;" onclick="show('s-solo-setup')">← Edit</button>
+    <div class="sess-name" id="solo-results-title" style="font-size:1.2rem;"></div>
+  </div>
+  <div class="content">
+    <div class="section-title">Rankings</div>
+    <p class="section-sub" id="solo-results-sub"></p>
+    <div id="solo-results-list" style="display:flex;flex-direction:column;gap:9px;margin-bottom:18px;"></div>
+    <div class="gap-10">
+      <button class="btn" onclick="soloStartRanking()">🔄 Re-rank</button>
+      <button class="btn btn-secondary" onclick="show('s-solo-setup')">Edit Items</button>
+      <button class="btn btn-ghost" onclick="show('s-solo-home')">← All Lists</button>
+    </div>
+  </div>
+</div>
+<script>
+// ============================================================
+// SOLO MODE — fully local, no Firebase needed
+// ============================================================
+var SOLO = { listId:null, listName:'', items:[], comparisons:[], queue:[], qIdx:0 };
+
+function soloLoadLists(){ try{ return JSON.parse(localStorage.getItem('rankit_solo_lists')||'[]'); }catch(e){ return []; } }
+function soloSaveLists(lists){ try{ localStorage.setItem('rankit_solo_lists', JSON.stringify(lists)); }catch(e){} }
+function soloLoadList(id){ return soloLoadLists().find(function(l){return l.id===id;})||null; }
+function soloSaveCurrentList(){
+  var lists=soloLoadLists(), idx=lists.findIndex(function(l){return l.id===SOLO.listId;});
+  var data={id:SOLO.listId,name:SOLO.listName,items:SOLO.items,comparisons:SOLO.comparisons,updatedAt:Date.now()};
+  if(idx>=0) lists[idx]=data; else lists.unshift(data);
+  soloSaveLists(lists);
+}
+
+function soloEsc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function soloCreateList(){
+  var inp=document.getElementById('inp-solo-list-name'), name=inp.value.trim();
+  if(!name){ alert('Enter a list name!'); return; }
+  var id='sl_'+Date.now(), lists=soloLoadLists();
+  lists.unshift({id:id,name:name,items:[],comparisons:[],updatedAt:Date.now()});
+  soloSaveLists(lists); inp.value='';
+  soloOpenList(id);
+}
+
+function soloDeleteListById(id, e){
+  e.stopPropagation();
+  if(!confirm('Delete this list?')) return;
+  soloSaveLists(soloLoadLists().filter(function(l){return l.id!==id;}));
+  renderSoloListCards();
+}
+
+function renderSoloListCards(){
+  var lists=soloLoadLists();
+  var container=document.getElementById('solo-list-cards');
+  var empty=document.getElementById('solo-lists-empty');
+  if(!lists.length){ container.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  var icons=['🏆','🎯','🍕','🎬','🎵','⚽','🎾','🏀','🎮','📚'];
+  container.innerHTML=lists.map(function(l,i){
+    var age=Date.now()-(l.updatedAt||0);
+    var ageStr=age<3600000?'Updated recently':age<86400000?Math.floor(age/3600000)+'h ago':Math.floor(age/86400000)+'d ago';
+    var icon=icons[i%icons.length], n=(l.items||[]).length;
+    return '<div class="solo-list-card" onclick="soloOpenList(\'' + l.id + '\')">'+
+      '<div class="solo-list-card-icon">'+icon+'</div>'+
+      '<div class="solo-list-card-info">'+
+        '<div class="solo-list-card-name">'+soloEsc(l.name)+'</div>'+
+        '<div class="solo-list-card-meta">'+n+' item'+(n!==1?'s':'')+' · '+ageStr+'</div>'+
+      '</div>'+
+      '<button class="solo-list-card-remove" onclick="soloDeleteListById(\'' + l.id + '\', event)">×</button>'+
+    '</div>';
+  }).join('');
+}
+
+function soloOpenList(id){
+  var list=soloLoadList(id); if(!list) return;
+  SOLO.listId=id; SOLO.listName=list.name;
+  SOLO.items=list.items||[]; SOLO.comparisons=list.comparisons||[];
+  document.getElementById('solo-setup-title').textContent=list.name;
+  renderSoloItems(); show('s-solo-setup');
+}
+
+function soloAddItem(){
+  var inp=document.getElementById('inp-solo-item'), name=inp.value.trim();
+  if(!name) return;
+  if(SOLO.items.find(function(i){return i.name.toLowerCase()===name.toLowerCase();})){alert('Already in list!');return;}
+  SOLO.items.push({id:'si_'+Date.now()+Math.random(),name:name});
+  inp.value=''; inp.focus(); soloSaveCurrentList(); renderSoloItems();
+}
+
+function soloRemoveItem(id){
+  SOLO.items=SOLO.items.filter(function(i){return i.id!==id;});
+  SOLO.comparisons=SOLO.comparisons.filter(function(c){return c.winner!==id&&c.loser!==id;});
+  soloSaveCurrentList(); renderSoloItems();
+}
+
+function renderSoloItems(){
+  var list=document.getElementById('solo-item-list'), btn=document.getElementById('btn-solo-start');
+  var note=document.getElementById('solo-setup-notice'), n=SOLO.items.length;
+  list.innerHTML=SOLO.items.map(function(item,i){
+    return '<div class="player-chip"><div style="display:flex;align-items:center;gap:10px;">'+
+      '<span class="chip-num">'+(i+1)+'</span>'+
+      '<span class="chip-name">'+soloEsc(item.name)+'</span></div>'+
+      '<button class="remove-btn" onclick="soloRemoveItem(\'' + item.id + '\')">×</button></div>';
+  }).join('')||'<div class="empty-state">No items yet.</div>';
+  btn.disabled=n<2;
+  if(n>=2){
+    note.style.display='block';
+    note.innerHTML='<strong>'+n+' items</strong> · Up to <strong>'+(n*(n-1)/2)+'</strong> comparisons';
+    if(SOLO.comparisons.length>0) note.innerHTML+=' · <strong style="color:var(--accent);cursor:pointer;" onclick="soloShowResults()">View rankings →</strong>';
+  } else note.style.display='none';
+}
+
+function soloDeleteList(){
+  if(!confirm('Delete this entire list?')) return;
+  soloSaveLists(soloLoadLists().filter(function(l){return l.id!==SOLO.listId;}));
+  SOLO.listId=null; SOLO.items=[]; SOLO.comparisons=[];
+  renderSoloListCards(); show('s-solo-home');
+}
+
+function soloPairCertainty(idA,idB){
+  var direct=SOLO.comparisons.filter(function(c){return(c.winner===idA&&c.loser===idB)||(c.winner===idB&&c.loser===idA);});
+  if(!direct.length) return 0;
+  var aW=direct.filter(function(c){return c.winner===idA;}).length, tot=direct.length;
+  return (Math.abs(aW*2-tot)/tot)*Math.min(tot,3);
+}
+
+function soloStartRanking(){
+  if(SOLO.items.length<2) return;
+  var pairs=[];
+  for(var i=0;i<SOLO.items.length;i++){
+    for(var j=i+1;j<SOLO.items.length;j++){
+      var a=SOLO.items[i],b=SOLO.items[j],cert=soloPairCertainty(a.id,b.id);
+      pairs.push({a:a,b:b,cert:cert});
+    }
+  }
+  var needed=pairs.filter(function(p){return p.cert<2.0;}).sort(function(a,b){return a.cert-b.cert;});
+  SOLO.queue=needed; SOLO.qIdx=0;
+  if(!SOLO.queue.length){ soloShowResults(); return; }
+  soloRenderCmp(); show('s-solo-compare');
+}
+
+function soloRenderCmp(){
+  var idx=SOLO.qIdx, q=SOLO.queue;
+  document.getElementById('solo-prog').style.width=(q.length?(idx/q.length*100):0)+'%';
+  document.getElementById('solo-prog-txt').textContent=idx+'/'+q.length;
+  if(idx>=q.length){ soloSaveCurrentList(); soloShowResults(); return; }
+  document.getElementById('solo-cmp-a').textContent=q[idx].a.name;
+  document.getElementById('solo-cmp-b').textContent=q[idx].b.name;
+}
+
+function soloRecord(choice){
+  var pair=SOLO.queue[SOLO.qIdx];
+  var winner=choice==='a'?pair.a.id:pair.b.id, loser=choice==='a'?pair.b.id:pair.a.id;
+  SOLO.comparisons=SOLO.comparisons.filter(function(c){
+    return !((c.winner===pair.a.id&&c.loser===pair.b.id)||(c.winner===pair.b.id&&c.loser===pair.a.id));
+  });
+  SOLO.comparisons.push({winner:winner,loser:loser});
+  SOLO.qIdx++; soloRenderCmp();
+}
+
+function soloSkip(){ SOLO.qIdx++; soloRenderCmp(); }
+
+function soloExitRanking(){ soloSaveCurrentList(); show('s-solo-setup'); }
+
+function soloShowResults(){
+  var items=SOLO.items; if(!items.length) return;
+  var wins={},losses={},total={};
+  items.forEach(function(i){wins[i.id]=0;losses[i.id]=0;total[i.id]=0;});
+  SOLO.comparisons.forEach(function(c){
+    wins[c.winner]=(wins[c.winner]||0)+1;
+    losses[c.loser]=(losses[c.loser]||0)+1;
+    total[c.winner]=(total[c.winner]||0)+1;
+    total[c.loser]=(total[c.loser]||0)+1;
+  });
+  var net=function(id){return(wins[id]||0)-(losses[id]||0);};
+  var sorted=[].concat(items).sort(function(a,b){return net(b.id)-net(a.id)||(wins[b.id]||0)-(wins[a.id]||0);});
+  var maxP=items.length-1, medals=['🥇','🥈','🥉'];
+  document.getElementById('solo-results-list').innerHTML=sorted.map(function(item,i){
+    var n=net(item.id),sc=n>0?'pos':n<0?'neg':'neu',sk=i<3?'s'+(i+1):'sx';
+    var conf=total[item.id]>=maxP*.75?'high':total[item.id]>=maxP*.4?'medium':'low';
+    return '<div class="result-item">'+
+      '<div class="seed-num '+sk+'">'+(i<3?medals[i]:'#'+(i+1))+'</div>'+
+      '<div class="result-info"><div class="result-name">'+soloEsc(item.name)+'</div>'+
+      '<div class="result-meta">'+(wins[item.id]||0)+'W–'+(losses[item.id]||0)+'L &nbsp;<span class="conf '+conf+'">'+conf+'</span></div></div>'+
+      '<div style="text-align:right;"><div class="score-val '+sc+'">'+(n>0?'+':'')+n+'</div>'+
+      '<div style="font-size:.62rem;color:var(--muted);">#'+(i+1)+'</div></div></div>';
+  }).join('');
+  var cov=maxP>0?Math.round(SOLO.comparisons.length/(items.length*(items.length-1)/2)*100):0;
+  document.getElementById('solo-results-title').textContent=SOLO.listName;
+  document.getElementById('solo-results-sub').textContent=SOLO.comparisons.length+' comparisons · '+cov+'% coverage';
+  show('s-solo-results');
+}
+
+// Mode toggle — plain script so onclick handlers can reach it
+function setMode(mode, el){
+  document.querySelectorAll('.mode-btn').forEach(function(b){ b.classList.remove('active'); });
+  el.classList.add('active');
+  window._pendingMode = mode;
+  var sessInp = document.getElementById('inp-session');
+  sessInp.placeholder = mode==='people' ? 'e.g. Ping Pong Night, Fantasy Draft…' : 'e.g. Best Restaurants, Top Movies…';
+}
+</script>
+</body>
+</html>
